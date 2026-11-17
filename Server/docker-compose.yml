@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: api-monitoring-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: api_monitoring
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_v18:/var/lib/postgresql
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql
+    networks:
+      - api-monitoring-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d api_monitoring"]
+      interval: 15s
+      timeout: 30s
+      retries: 5
+  mongodb:
+    image: mongo:latest
+    container_name: api-monitoring-mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - api-monitoring-network
+    restart: unless-stopped
+  
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: api-monitoring-rabbitmq
+    environment:
+        RABBITMQ_DEFAULT_USER: guest
+        RABBITMQ_DEFAULT_PASS: guest
+        RABBITMQ_DEFAULT_VHOST: api_monitoring
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - api-monitoring-network
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: api-monitoring-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pgadmin.org
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    networks:
+      - api-monitoring-network
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    restart: unless-stopped
+    depends_on:
+      - postgres
+volumes:
+  postgres_data:
+    driver: local
+  postgres_data_v18:
+    driver: local
+  mongo_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  pgadmin-data:
+    driver: local
+networks:
+  api-monitoring-network:
+    driver: bridge
+
